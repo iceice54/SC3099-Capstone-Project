@@ -322,3 +322,7 @@ Avoid these mistakes:
 - Check the skeleton code for implementation hints
 
 Good luck with your capstone project!
+
+[Development Guide (ADDED)](DEVELOPMENT-GUIDE.md)
+
+[Timeline (ADDED)](TIMELINE.md)
