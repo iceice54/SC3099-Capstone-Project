@@ -19,13 +19,21 @@ Recommended Libraries:
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import Optional, Dict, List, Any
+from models import (
+    FaceEnrollRequest,
+    FaceEnrollResponse,
+    FaceVerifyRequest,
+    FaceVerifyResponse,
+    LivenessRequest,
+    LivenessResponse,
+    RiskAssessRequest,
+    RiskAssessResponse,
+)
 
 app = FastAPI(
     title="SAIV Face Recognition Service",
     description="Face enrollment, verification, liveness detection, and risk scoring service",
-    version="1.0.0"
+    version="1.0.0",
 )
 
 app.add_middleware(
@@ -36,92 +44,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-# =============================================================================
-# REQUEST/RESPONSE MODELS
-# =============================================================================
-
-class FaceEnrollRequest(BaseModel):
-    """Request model for face enrollment."""
-    user_id: str
-    image: str  # Base64 encoded image
-    camera_consent: bool = False
-
-
-class FaceEnrollResponse(BaseModel):
-    """Response model for face enrollment."""
-    enrollment_successful: bool
-    face_template_hash: str  # 64-char SHA-256 hex string
-    quality_score: float  # 0.0 to 1.0
-    details: Dict[str, Any]
-
-
-class FaceVerifyRequest(BaseModel):
-    """Request model for face verification."""
-    image: str  # Base64 encoded image
-    reference_template_hash: str  # Hash from enrollment
-
-
-class FaceVerifyResponse(BaseModel):
-    """Response model for face verification."""
-    match_passed: bool
-    match_score: float  # 0.0 to 1.0
-    match_threshold: float  # Default: 0.70
-    face_detected: bool
-    current_template_hash: str
-
-
-class LivenessRequest(BaseModel):
-    """Request model for liveness check."""
-    challenge_response: str  # Base64 encoded image
-    challenge_type: str = "blink"  # blink, head_turn, passive
-
-
-class LivenessResponse(BaseModel):
-    """Response model for liveness check."""
-    liveness_passed: bool
-    liveness_score: float  # 0.0 to 1.0
-    liveness_threshold: float  # Default: 0.60
-    face_embedding_hash: str
-    details: Dict[str, Any]
-
-
-class GeolocationData(BaseModel):
-    """Geolocation data for risk assessment."""
-    latitude: float
-    longitude: float
-    accuracy: float
-
-
-class RiskAssessRequest(BaseModel):
-    """Request model for risk assessment."""
-    liveness_score: Optional[float] = None
-    face_match_score: Optional[float] = None
-    device_signature: Optional[str] = None
-    device_public_key: Optional[str] = None
-    ip_address: Optional[str] = None
-    user_agent: Optional[str] = None
-    geolocation: Optional[GeolocationData] = None
-
-
-class RiskAssessResponse(BaseModel):
-    """Response model for risk assessment."""
-    risk_score: float  # 0.0 to 1.0
-    risk_level: str  # LOW, MEDIUM, HIGH, CRITICAL
-    pass_threshold: bool
-    risk_threshold: float  # Default: 0.50
-    signal_breakdown: Dict[str, float]
-    recommendations: List[str]
-
-
 # =============================================================================
 # HEALTH & ROOT ENDPOINTS
 # =============================================================================
 
+
 @app.get("/health")
 async def health_check():
     """Basic health check endpoint."""
-    return {"status": "healthy"}
+    return {"status": "healthy", "service": "face-recognition-service"}
 
 
 @app.get("/")
@@ -136,14 +67,15 @@ async def root():
             "POST /face/verify - Verify a face against enrolled template",
             "POST /face/match - Legacy face matching (use /face/verify)",
             "POST /liveness/check - Perform liveness detection",
-            "POST /risk/assess - Multi-signal risk assessment"
-        ]
+            "POST /risk/assess - Multi-signal risk assessment",
+        ],
     }
 
 
 # =============================================================================
 # FACE ENROLLMENT ENDPOINT (REQUIRED - 4 points in public tests)
 # =============================================================================
+
 
 @app.post("/face/enroll", response_model=FaceEnrollResponse, status_code=201)
 async def enroll_face(request: FaceEnrollRequest):
@@ -169,12 +101,18 @@ async def enroll_face(request: FaceEnrollRequest):
     - Returns 64-char SHA-256 hex hash
     """
     # TODO: Implement face enrollment
+    if not request.camera_consent:
+        raise HTTPException(status_code=400, detail="Camera consent is false")
+
+    # decode base64 image to numpy
+
     raise HTTPException(status_code=501, detail="Not implemented")
 
 
 # =============================================================================
 # FACE VERIFICATION ENDPOINT (REQUIRED - 4 points in public tests)
 # =============================================================================
+
 
 @app.post("/face/verify", response_model=FaceVerifyResponse)
 async def verify_face(request: FaceVerifyRequest):
@@ -210,6 +148,7 @@ async def match_face(request: FaceVerifyRequest):
 # =============================================================================
 # LIVENESS DETECTION ENDPOINT (REQUIRED - partial; BONUS for advanced)
 # =============================================================================
+
 
 @app.post("/liveness/check", response_model=LivenessResponse)
 async def check_liveness(request: LivenessRequest):
@@ -256,6 +195,7 @@ async def check_liveness(request: LivenessRequest):
 # RISK ASSESSMENT ENDPOINT (REQUIRED - 3 points in public tests)
 # =============================================================================
 
+
 @app.post("/risk/assess", response_model=RiskAssessResponse)
 async def assess_risk(request: RiskAssessRequest):
     """
@@ -300,18 +240,8 @@ async def assess_risk(request: RiskAssessRequest):
 # HELPER FUNCTIONS (Implement these to support your endpoints)
 # =============================================================================
 
-def decode_base64_image(base64_string: str):
-    """
-    Decode a base64 encoded image to a numpy array.
 
-    TODO: Implement using:
-    - base64.b64decode()
-    - PIL.Image.open(BytesIO(...))
-    - numpy.array()
 
-    Handle errors gracefully (invalid base64, corrupt image, etc.)
-    """
-    pass
 
 
 def detect_face(image_array):
@@ -324,7 +254,6 @@ def detect_face(image_array):
 
     Consider setting min_detection_confidence=0.5
     """
-    pass
 
 
 def extract_face_embedding(image_array, detection):
@@ -338,7 +267,6 @@ def extract_face_embedding(image_array, detection):
 
     Return numpy array that can be hashed.
     """
-    pass
 
 
 def generate_face_hash(embedding) -> str:
@@ -350,7 +278,6 @@ def generate_face_hash(embedding) -> str:
     - embedding.tobytes() or embedding.tostring()
     - Return 64-character hex string
     """
-    pass
 
 
 def analyze_face_mesh(image_array):
@@ -369,7 +296,6 @@ def analyze_face_mesh(image_array):
     - nose_tip_z: float
     - depth_quality: "good" | "moderate" | "poor"
     """
-    pass
 
 
 def detect_blink(face_mesh_landmarks):
@@ -381,7 +307,6 @@ def detect_blink(face_mesh_landmarks):
     - Calculate Eye Aspect Ratio (EAR)
     - EAR < threshold indicates closed eye
     """
-    pass
 
 
 def detect_vpn_proxy(ip_address: str, user_agent: str) -> tuple:
@@ -396,7 +321,6 @@ def detect_vpn_proxy(ip_address: str, user_agent: str) -> tuple:
 
     Return (is_vpn: bool, confidence: float)
     """
-    pass
 
 
 # =============================================================================
